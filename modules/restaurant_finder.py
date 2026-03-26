@@ -2,84 +2,93 @@ import requests
 import os
 from dotenv import load_dotenv
 
+from utils.location import get_current_location
+
 # Load environment variables
 load_dotenv()
 
-API_KEY = os.getenv("FOURSQUARE_API_KEY")
+API_KEY = os.getenv("GOOGLE_API_KEY")
 
 
-def find_restaurants(parsed_data):
+def find_restaurants():
+    """
+    Find nearby restaurants using Google Places API (no dish filtering)
+    """
     if not API_KEY:
-        print("❌ API key not found. Check your .env file.")
+        print("❌ GOOGLE_API_KEY missing")
         return []
 
-    location = parsed_data.get("location", "Delhi")
-    dish = parsed_data.get("dishes", ["restaurant"])[0]
+    # 🔥 Step 1: Get user location
+    lat, lng = get_current_location()
 
-    url = "https://places-api.foursquare.com/places/search"
+    if lat is None or lng is None:
+        print("❌ Could not determine location")
+        return []
 
-    headers = {
-        "accept": "application/json",
-        "X-Places-Api-Version": "2025-06-17",
-        "authorization": f"Bearer {API_KEY}"
-    }
+    # 🔥 Step 2: Google Places API call
+    url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
 
     params = {
-        "query": f"{dish}",
-        "near": location,
-        "limit": 5,
-        "sort": "DISTANCE"
+        "location": f"{lat},{lng}",
+        "rankby": "distance",   # closest restaurants first
+        "type": "restaurant",
+        "key": API_KEY
     }
 
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=5)
+        response = requests.get(url, params=params, timeout=10)
 
-        print("Status Code:", response.status_code)  # debug
-
-        if response.status_code != 200:
-            print("❌ API Error:", response.text)
+        try:
+            data = response.json()
+        except:
+            print("❌ Invalid JSON from Places API")
             return []
 
-        data = response.json()
+        # Handle errors
+        if data.get("status") == "ZERO_RESULTS":
+            print("⚠️ No restaurants found nearby")
+            return []
 
+        if data.get("status") != "OK":
+            print(f"❌ Places API Error: {data.get('status')}")
+            return []
+
+        # 🔥 Step 3: Parse results
         restaurants = []
 
-        for place in data.get("results", []):
+        for place in data.get("results", [])[:5]:
             restaurants.append({
                 "name": place.get("name"),
-                "address": place.get("location", {}).get("formatted_address"),
+                "address": place.get("vicinity"),
                 "rating": place.get("rating", "N/A"),
-                "fsq_id": place.get("fsq_id"),  # IMPORTANT for details API
-                "lat": place.get("geocodes", {}).get("main", {}).get("latitude"),
-                "lon": place.get("geocodes", {}).get("main", {}).get("longitude")
+                "place_id": place.get("place_id"),
+                "lat": place["geometry"]["location"]["lat"],
+                "lon": place["geometry"]["location"]["lng"]
             })
 
         return restaurants
 
     except Exception as e:
-        print("❌ Error fetching restaurants:", e)
+        print(f"❌ Restaurant fetch error: {e}")
         return []
 
 
-# 🔥 Demo run
+# 🔥 MAIN (for testing)
 if __name__ == "__main__":
 
-    print("API KEY:", API_KEY)
+    print("🔍 Finding nearby restaurants...\n")
 
-    sample_input = {
-        "dishes": ["butter chicken"],
-        "location": "Delhi"
-    }
+    results = find_restaurants()
 
-    results = find_restaurants(sample_input)
-
-    print("\n🍽️ Nearby Restaurants:\n")
+    print("\n" + "=" * 30)
+    print("🍽️ NEARBY RESTAURANTS")
+    print("=" * 30 + "\n")
 
     if not results:
         print("No restaurants found.")
     else:
         for i, r in enumerate(results):
-            print(f"{i+1}. {r['name']}")
+            print(f"{i + 1}. {r['name']}")
             print(f"   📍 {r['address']}")
-            print(f"   ⭐ {r['rating']}")
-            print()
+            print(f"   ⭐ Rating: {r['rating']}")
+            print("-" * 20)
