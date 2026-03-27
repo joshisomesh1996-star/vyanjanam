@@ -3,10 +3,20 @@ class UserManager:
         self.user = {
             "user_id": 1,
             "name": "Guest",
+            "email": "user@example.com",
             "total_calories": 0,
             "total_spending": 0,
             "order_history": []
         }
+
+    # 🔹 Set / update user (important for MCP)
+    def set_user(self, name: str, email: str):
+        self.user["name"] = name
+        self.user["email"] = email
+
+    # 🔹 Get user email
+    def get_email(self):
+        return self.user["email"]
 
     # 🔹 Update after each order
     def update_after_order(self, order, calories, bill):
@@ -53,15 +63,22 @@ class UserManager:
     def get_order_history(self):
         return self.user["order_history"]
 
-    # 🔹 Show last order (very useful)
+    # 🔹 Show last order
     def get_last_order(self):
         if not self.user["order_history"]:
             return None
         return self.user["order_history"][-1]
 
+
+# ==============================
+# 🔥 TEST BLOCK
+# ==============================
 if __name__ == "__main__":
 
     user_manager = UserManager()
+
+    # 🔥 Set user (NEW)
+    user_manager.set_user("Harsh", "harsh@example.com")
 
     # 🔥 Fake order
     order = {
@@ -91,3 +108,6 @@ if __name__ == "__main__":
 
     print("\n=== LAST ORDER ===")
     print(user_manager.get_last_order())
+
+    print("\n=== USER EMAIL ===")
+    print(user_manager.get_email())
