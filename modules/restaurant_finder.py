@@ -4,59 +4,72 @@ from dotenv import load_dotenv
 
 from utils.location import get_current_location
 
-# Load environment variables
 load_dotenv()
 
-API_KEY = os.getenv("GOOGLE_API_KEY")
 
+class RestaurantFinder:
+    def __init__(self):
+        self.api_key = os.getenv("GOOGLE_API_KEY")
 
-def find_restaurants():
-    """
-    Find nearby restaurants using Google Places API (no dish filtering)
-    """
-    if not API_KEY:
-        print("❌ GOOGLE_API_KEY missing")
-        return []
+    # 🔹 Get nearby restaurants
+    def find_restaurants(self, limit=5):
+        """
+        Find nearby restaurants using Google Places API
+        """
 
-    # 🔥 Step 1: Get user location
-    lat, lng = get_current_location()
+        if not self.api_key:
+            print("❌ GOOGLE_API_KEY missing")
+            return []
 
-    if lat is None or lng is None:
-        print("❌ Could not determine location")
-        return []
+        # 🔥 Step 1: Get user location
+        lat, lng = get_current_location()
 
-    # 🔥 Step 2: Google Places API call
-    url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+        if lat is None or lng is None:
+            print("❌ Could not determine location")
+            return []
 
-    params = {
-        "location": f"{lat},{lng}",
-        "rankby": "distance",   # closest restaurants first
-        "type": "restaurant",
-        "key": API_KEY
-    }
+        # 🔥 Step 2: API call
+        url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
 
-    try:
-        response = requests.get(url, params=params, timeout=10)
+        params = {
+            "location": f"{lat},{lng}",
+            "rankby": "distance",
+            "type": "restaurant",
+            "key": self.api_key
+        }
 
         try:
-            data = response.json()
-        except:
-            print("❌ Invalid JSON from Places API")
+            response = requests.get(url, params=params, timeout=10)
+
+            try:
+                data = response.json()
+            except:
+                print("❌ Invalid JSON from Places API")
+                return []
+
+            # 🔴 Handle errors
+            status = data.get("status")
+
+            if status == "ZERO_RESULTS":
+                print("⚠️ No restaurants found nearby")
+                return []
+
+            if status != "OK":
+                print(f"❌ Places API Error: {status}")
+                return []
+
+            # 🔥 Step 3: Parse
+            return self._parse_results(data, limit)
+
+        except Exception as e:
+            print(f"❌ Restaurant fetch error: {e}")
             return []
 
-        # Handle errors
-        if data.get("status") == "ZERO_RESULTS":
-            print("⚠️ No restaurants found nearby")
-            return []
-
-        if data.get("status") != "OK":
-            print(f"❌ Places API Error: {data.get('status')}")
-            return []
-
-        # 🔥 Step 3: Parse results
+    # 🔹 Internal parser (clean design)
+    def _parse_results(self, data, limit):
         restaurants = []
 
-        for place in data.get("results", [])[:5]:
+        for place in data.get("results", [])[:limit]:
             restaurants.append({
                 "name": place.get("name"),
                 "address": place.get("vicinity"),
@@ -68,27 +81,27 @@ def find_restaurants():
 
         return restaurants
 
-    except Exception as e:
-        print(f"❌ Restaurant fetch error: {e}")
-        return []
+    # 🔹 Display nicely
+    def display_restaurants(self, restaurants):
+        print("\n🍽️ NEARBY RESTAURANTS\n")
 
+        if not restaurants:
+            print("No restaurants found.")
+            return
 
-# 🔥 MAIN (for testing)
-if __name__ == "__main__":
-
-    print("🔍 Finding nearby restaurants...\n")
-
-    results = find_restaurants()
-
-    print("\n" + "=" * 30)
-    print("🍽️ NEARBY RESTAURANTS")
-    print("=" * 30 + "\n")
-
-    if not results:
-        print("No restaurants found.")
-    else:
-        for i, r in enumerate(results):
+        for i, r in enumerate(restaurants):
             print(f"{i + 1}. {r['name']}")
             print(f"   📍 {r['address']}")
             print(f"   ⭐ Rating: {r['rating']}")
             print("-" * 20)
+
+
+# 🔥 TEST
+if __name__ == "__main__":
+    finder = RestaurantFinder()
+
+    print("🔍 Finding nearby restaurants...\n")
+
+    results = finder.find_restaurants()
+
+    finder.display_restaurants(results)
