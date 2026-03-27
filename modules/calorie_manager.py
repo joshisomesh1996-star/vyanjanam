@@ -1,11 +1,15 @@
 import sqlite3
 
-DB_NAME = "calories.db"
+import os
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_NAME = os.path.join(BASE_DIR, "calories.db")
 
 
 class CalorieManager:
 
     def get_calories(self, food_name):
+        print("DB PATH USED:", os.path.abspath(DB_NAME))
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
 

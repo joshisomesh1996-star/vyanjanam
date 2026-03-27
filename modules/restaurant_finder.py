@@ -14,21 +14,18 @@ class RestaurantFinder:
     # 🔹 Get nearby restaurants
     def find_restaurants(self, limit=5):
         """
-        Find nearby restaurants using Google Places API
+        MCP-safe restaurant finder
         """
 
         if not self.api_key:
-            print("❌ GOOGLE_API_KEY missing")
-            return []
+            return [{"error": "GOOGLE_API_KEY missing"}]
 
-        # 🔥 Step 1: Get user location
+        # 🔥 Step 1: Get location
         lat, lng = get_current_location()
 
         if lat is None or lng is None:
-            print("❌ Could not determine location")
-            return []
+            return [{"error": "Could not determine location"}]
 
-        # 🔥 Step 2: API call
         url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
 
         params = {
@@ -41,31 +38,22 @@ class RestaurantFinder:
         try:
             response = requests.get(url, params=params, timeout=10)
 
-            try:
-                data = response.json()
-            except:
-                print("❌ Invalid JSON from Places API")
-                return []
+            data = response.json()
 
-            # 🔴 Handle errors
             status = data.get("status")
 
             if status == "ZERO_RESULTS":
-                print("⚠️ No restaurants found nearby")
-                return []
+                return [{"message": "No restaurants found nearby"}]
 
             if status != "OK":
-                print(f"❌ Places API Error: {status}")
-                return []
+                return [{"error": f"Places API Error: {status}"}]
 
-            # 🔥 Step 3: Parse
             return self._parse_results(data, limit)
 
         except Exception as e:
-            print(f"❌ Restaurant fetch error: {e}")
-            return []
+            return [{"error": str(e)}]
 
-    # 🔹 Internal parser (clean design)
+    # 🔹 Internal parser
     def _parse_results(self, data, limit):
         restaurants = []
 
@@ -81,27 +69,11 @@ class RestaurantFinder:
 
         return restaurants
 
-    # 🔹 Display nicely
-    def display_restaurants(self, restaurants):
-        print("\n🍽️ NEARBY RESTAURANTS\n")
 
-        if not restaurants:
-            print("No restaurants found.")
-            return
-
-        for i, r in enumerate(restaurants):
-            print(f"{i + 1}. {r['name']}")
-            print(f"   📍 {r['address']}")
-            print(f"   ⭐ Rating: {r['rating']}")
-            print("-" * 20)
-
-
-# 🔥 TEST
+# 🔥 TEST (safe for CLI only)
 if __name__ == "__main__":
     finder = RestaurantFinder()
-
-    print("🔍 Finding nearby restaurants...\n")
-
     results = finder.find_restaurants()
 
-    finder.display_restaurants(results)
+    print("\n🍽️ TEST OUTPUT:\n")
+    print(results)
